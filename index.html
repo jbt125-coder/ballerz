@@ -483,12 +483,12 @@ function shootBall(zone) {
   playShoot();
 }
 
-// Swish window is LEADING - reward tapping just BEFORE the hoop reaches the player X
+// Swish window is LEADING - tighter to make scoring a real challenge
 function evalShot(hoopDist, hoopApproaching, playerX) {
   var rimW = W * 0.06;
-  var leadBonus = hoopApproaching ? rimW * 1.8 : rimW * 0.4;
-  var swishW = rimW * 2.0 + leadBonus;
-  var brickW = rimW * 3.5 + leadBonus;
+  var leadBonus = hoopApproaching ? rimW * 0.8 : rimW * 0.1;
+  var swishW = rimW * 0.9 + leadBonus;   // tight swish
+  var brickW = rimW * 2.0 + leadBonus;   // close miss
   if (hoopDist < swishW) return 'swish';
   if (hoopDist < brickW) return 'brick';
   return 'airball';
@@ -503,45 +503,274 @@ function addEffect(text, color, x, y) {
   });
 }
 
-// ---- DRAWING ----
-function drawBrickWall() {
-  // Background brick wall
-  ctx.fillStyle = '#2a0d00';
+// ---- GRAFFITI HELPERS ----
+function sprayText(text, x, y, size, color, angle, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha || 0.72;
+  ctx.translate(x, y);
+  ctx.rotate(angle || 0);
+  // Spray paint outer glow (bleed)
+  ctx.font = 'bold italic ' + (size * 1.06) + 'px Arial Black';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillText(text, 2, 3);
+  // Main fill
+  ctx.font = 'bold italic ' + size + 'px Arial Black';
+  ctx.fillStyle = color;
+  ctx.fillText(text, 0, 0);
+  // Highlight streak (spray shine)
+  ctx.globalAlpha = (alpha || 0.72) * 0.4;
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold italic ' + (size * 0.92) + 'px Arial Black';
+  ctx.fillText(text, -1, -1);
+  ctx.restore();
+}
+
+function sprayShape(drawFn, alpha) {
+  ctx.save();
+  ctx.globalAlpha = alpha || 0.55;
+  drawFn();
+  ctx.restore();
+}
+
+function drawGraffitiWall() {
+  // Background
+  ctx.fillStyle = '#1e0900';
   ctx.fillRect(0, 0, W, H);
 
   // Brick pattern
   var bw = W * 0.08, bh = H * 0.045;
-  ctx.strokeStyle = '#1a0800';
+  ctx.strokeStyle = '#120500';
   ctx.lineWidth = 1.5;
   for (var row = 0; row < H / bh + 1; row++) {
     var offset = (row % 2 === 0) ? 0 : bw / 2;
     for (var col = -1; col < W / bw + 1; col++) {
-      var bx = col * bw + offset;
-      var by = row * bh;
-      // Slight color variation
-      var shade = 0.85 + Math.sin(row * 7 + col * 13) * 0.08;
-      ctx.fillStyle = 'rgba(' + Math.floor(80 * shade) + ',' + Math.floor(30 * shade) + ',' + Math.floor(5 * shade) + ',1)';
-      ctx.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
-      ctx.strokeRect(bx, by, bw, bh);
+      var bxg = col * bw + offset;
+      var byg = row * bh;
+      var shade = 0.82 + Math.sin(row * 7 + col * 13) * 0.1;
+      ctx.fillStyle = 'rgba(' + Math.floor(72*shade) + ',' + Math.floor(26*shade) + ',' + Math.floor(4*shade) + ',1)';
+      ctx.fillRect(bxg + 1, byg + 1, bw - 2, bh - 2);
+      ctx.strokeRect(bxg, byg, bw, bh);
     }
   }
 
-  // Court floor gradient at bottom
+  // ---- GRAFFITI PIECES ----
+  var gs = Math.min(W, H); // scale reference
+
+  // Big "BALLERZ" tag top-left - orange/yellow
+  sprayText('BALLERZ', W*0.18, H*0.08, gs*0.06, '#ff9900', -0.06, 0.65);
+
+  // "HOOPS" drip tag - cyan, right side upper
+  sprayText('HOOPS', W*0.82, H*0.1, gs*0.05, '#00ddff', 0.08, 0.55);
+
+  // Star spray shapes - scattered
+  sprayShape(function() {
+    ctx.fillStyle = '#ff3399';
+    ctx.beginPath();
+    for (var sp = 0; sp < 5; sp++) {
+      var ang = (sp * 4 * Math.PI / 5) - Math.PI / 2;
+      var ang2 = ang + 2 * Math.PI / 5;
+      var r1 = gs * 0.028, r2 = gs * 0.013;
+      if (sp === 0) ctx.moveTo(W*0.05 + Math.cos(ang)*r1, H*0.35 + Math.sin(ang)*r1);
+      else ctx.lineTo(W*0.05 + Math.cos(ang)*r1, H*0.35 + Math.sin(ang)*r1);
+      ctx.lineTo(W*0.05 + Math.cos(ang2)*r2, H*0.35 + Math.sin(ang2)*r2);
+    }
+    ctx.closePath(); ctx.fill();
+  }, 0.6);
+
+  // "SWISH" tag - green, mid left
+  sprayText('SWISH', W*0.12, H*0.42, gs*0.038, '#44ff44', -0.12, 0.58);
+
+  // Arrow graffiti - right mid
+  sprayShape(function() {
+    ctx.strokeStyle = '#ffff00';
+    ctx.lineWidth = gs * 0.012;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(W*0.88, H*0.38);
+    ctx.lineTo(W*0.96, H*0.44);
+    ctx.lineTo(W*0.88, H*0.50);
+    ctx.moveTo(W*0.96, H*0.44);
+    ctx.lineTo(W*0.78, H*0.44);
+    ctx.stroke();
+  }, 0.55);
+
+  // "GAME" large mid-wall tag
+  sprayText('GAME', W*0.5, H*0.5, gs*0.055, '#cc44ff', 0.04, 0.42);
+
+  // Bubble letters "ON" next to it
+  sprayText('ON', W*0.72, H*0.52, gs*0.044, '#ff6600', -0.05, 0.48);
+
+  // Drip lines simulation - left wall
+  sprayShape(function() {
+    ctx.strokeStyle = '#ff2266';
+    ctx.lineWidth = gs * 0.008;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(W*0.04, H*0.2);
+    ctx.bezierCurveTo(W*0.03, H*0.3, W*0.05, H*0.35, W*0.04, H*0.45);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(W*0.04, H*0.45, gs*0.008, 0, Math.PI*2);
+    ctx.fillStyle = '#ff2266';
+    ctx.fill();
+  }, 0.6);
+
+  // "23" jersey number tag - bottom left
+  sprayText('23', W*0.08, H*0.72, gs*0.07, '#00ffcc', 0.1, 0.45);
+
+  // crown symbol above 23
+  sprayShape(function() {
+    ctx.fillStyle = '#ffcc00';
+    ctx.beginPath();
+    var cx2 = W*0.08, cy2 = H*0.66, cw = gs*0.03, ch = gs*0.018;
+    ctx.moveTo(cx2 - cw, cy2 + ch);
+    ctx.lineTo(cx2 - cw, cy2 - ch);
+    ctx.lineTo(cx2 - cw*0.5, cy2);
+    ctx.lineTo(cx2, cy2 - ch*1.5);
+    ctx.lineTo(cx2 + cw*0.5, cy2);
+    ctx.lineTo(cx2 + cw, cy2 - ch);
+    ctx.lineTo(cx2 + cw, cy2 + ch);
+    ctx.closePath(); ctx.fill();
+  }, 0.65);
+
+  // "NOTHING BUT NET" small tag top right
+  sprayText('NOTHING BUT NET', W*0.72, H*0.19, gs*0.022, '#ff9944', -0.03, 0.5);
+
+  // Spray dots cluster - upper right corner
+  sprayShape(function() {
+    ctx.fillStyle = '#ff4400';
+    for (var sd = 0; sd < 8; sd++) {
+      var ddx = W*0.92 + Math.sin(sd*1.8)*gs*0.04;
+      var ddy = H*0.08 + Math.cos(sd*2.1)*gs*0.025;
+      ctx.beginPath();
+      ctx.arc(ddx, ddy, gs*0.004 + Math.random()*gs*0.005, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }, 0.55);
+
+  // "SLAM" diagonal tag bottom right
+  sprayText('SLAM', W*0.85, H*0.68, gs*0.048, '#ff2200', 0.18, 0.52);
+
+  // Court floor
   var floorY = H * (isLandscape ? 0.6 : 0.65);
   var grad = ctx.createLinearGradient(0, floorY, 0, H);
-  grad.addColorStop(0, 'rgba(120,60,0,0.6)');
-  grad.addColorStop(1, 'rgba(60,20,0,0.9)');
+  grad.addColorStop(0, 'rgba(100,48,8,0.75)');
+  grad.addColorStop(1, 'rgba(45,15,2,0.95)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, floorY, W, H - floorY);
-
-  // Court line
   ctx.strokeStyle = 'rgba(255,180,80,0.3)';
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.moveTo(0, floorY);
   ctx.lineTo(W, floorY);
   ctx.stroke();
+  // floor graffiti tag
+  sprayText('BALLER COURT', W*0.5, floorY + H*0.04, gs*0.022, '#ff6600', 0, 0.3);
 }
+
+// Separate halftime wall (side-view perspective - different art)
+function drawGraffitiWallHalftime() {
+  ctx.fillStyle = '#1a1000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Brick pattern - slightly different tones for indoor arena feel
+  var bw2 = W * 0.09, bh2 = H * 0.05;
+  ctx.strokeStyle = '#0f0800';
+  ctx.lineWidth = 1.5;
+  for (var row2 = 0; row2 < H / bh2 + 1; row2++) {
+    var off2 = (row2 % 2 === 0) ? 0 : bw2 / 2;
+    for (var col2 = -1; col2 < W / bw2 + 1; col2++) {
+      var bxh = col2 * bw2 + off2;
+      var byh = row2 * bh2;
+      var sh2 = 0.8 + Math.sin(row2 * 5 + col2 * 11) * 0.09;
+      ctx.fillStyle = 'rgba(' + Math.floor(68*sh2) + ',' + Math.floor(38*sh2) + ',' + Math.floor(8*sh2) + ',1)';
+      ctx.fillRect(bxh+1, byh+1, bw2-2, bh2-2);
+      ctx.strokeRect(bxh, byh, bw2, bh2);
+    }
+  }
+
+  var gs2 = Math.min(W, H);
+
+  // "HALFTIME" big tag - top center
+  sprayText('HALFTIME', W*0.5, H*0.06, gs2*0.055, '#ffcc00', 0, 0.7);
+
+  // "BONUS" next to it
+  sprayText('BONUS', W*0.82, H*0.06, gs2*0.038, '#ff44ff', 0.05, 0.6);
+
+  // Large flame shapes left wall
+  sprayShape(function() {
+    ctx.fillStyle = '#ff4400';
+    ctx.beginPath();
+    ctx.moveTo(W*0.06, H*0.55);
+    ctx.bezierCurveTo(W*0.02, H*0.42, W*0.08, H*0.38, W*0.05, H*0.28);
+    ctx.bezierCurveTo(W*0.10, H*0.35, W*0.09, H*0.40, W*0.13, H*0.35);
+    ctx.bezierCurveTo(W*0.15, H*0.42, W*0.11, H*0.48, W*0.14, H*0.55);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#ffaa00';
+    ctx.beginPath();
+    ctx.moveTo(W*0.07, H*0.52);
+    ctx.bezierCurveTo(W*0.04, H*0.44, W*0.09, H*0.40, W*0.07, H*0.33);
+    ctx.bezierCurveTo(W*0.11, H*0.38, W*0.10, H*0.44, W*0.12, H*0.52);
+    ctx.closePath(); ctx.fill();
+  }, 0.65);
+
+  // "FREE THROW" tag
+  sprayText('FREE THROW', W*0.28, H*0.22, gs2*0.032, '#00ffaa', -0.08, 0.55);
+
+  // Basketball icon outline - right side
+  sprayShape(function() {
+    ctx.strokeStyle = '#ff6600';
+    ctx.lineWidth = gs2 * 0.01;
+    ctx.beginPath();
+    ctx.arc(W*0.88, H*0.38, gs2*0.055, 0, Math.PI*2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(W*0.88 - gs2*0.055, H*0.38);
+    ctx.lineTo(W*0.88 + gs2*0.055, H*0.38);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(W*0.88, H*0.38, gs2*0.035, -Math.PI*0.5, Math.PI*0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(W*0.88, H*0.38, gs2*0.035, Math.PI*0.5, Math.PI*1.5);
+    ctx.stroke();
+  }, 0.6);
+
+  // "3PT" tag mid right
+  sprayText('3PT', W*0.78, H*0.5, gs2*0.06, '#ff3399', 0.12, 0.58);
+
+  // "HALF COURT" diagonal bottom left
+  sprayText('HALF COURT', W*0.18, H*0.65, gs2*0.03, '#44aaff', -0.15, 0.5);
+
+  // Spray dots pattern
+  sprayShape(function() {
+    ctx.fillStyle = '#ffff00';
+    for (var sd2 = 0; sd2 < 12; sd2++) {
+      ctx.beginPath();
+      ctx.arc(W*0.5 + Math.sin(sd2*0.8)*W*0.4, H*0.75 + Math.cos(sd2*1.1)*H*0.08,
+              gs2*0.003 + Math.abs(Math.sin(sd2))*gs2*0.004, 0, Math.PI*2);
+      ctx.fill();
+    }
+  }, 0.45);
+
+  // Court floor
+  var flY = H * 0.78;
+  ctx.fillStyle = '#7a3800';
+  ctx.fillRect(0, flY, W, H - flY);
+  ctx.strokeStyle = 'rgba(255,180,80,0.4)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, flY); ctx.lineTo(W, flY); ctx.stroke();
+  // Free throw arc on floor
+  ctx.strokeStyle = 'rgba(255,180,80,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(W*0.82, flY, W*0.12, Math.PI, 0);
+  ctx.stroke();
+}
+
+function drawBrickWall() { drawGraffitiWall(); }
 
 function drawHoop() {
   var hx = getHoopPixelX();
@@ -1168,19 +1397,25 @@ function update(dt) {
 
         if (ball.result === 'airball') {
           ball.phase = 'vanish';
+          var penaltyA = getTier().pts;
+          score = Math.max(0, score - penaltyA);
+          totalScore = Math.max(0, totalScore - penaltyA);
           onMiss();
           streak = 0;
-          addEffect('AIRBALL', '#ff8800', binfo.cx, ball.rimY);
+          addEffect('AIRBALL -' + penaltyA, '#ff4400', binfo.cx, ball.rimY);
 
         } else if (ball.result === 'brick') {
           ball.phase = 'bounce';
           playBrick();
+          var penaltyB = getTier().pts;
+          score = Math.max(0, score - penaltyB);
+          totalScore = Math.max(0, totalScore - penaltyB);
           onMiss();
           streak = 0;
           var bdir = (ball.arc.startX < getHoopPixelX()) ? 1 : -1;
           ball.vx = bdir * W * 0.22;
           ball.vy = -H * 0.32;
-          addEffect('oh...', '#ffaa00', binfo.cx, ball.rimY - H * 0.06);
+          addEffect('BRICK -' + penaltyB, '#ff4400', binfo.cx, ball.rimY - H * 0.06);
           ball.ohShown = true;
           ball.nopeShown = false;
 
@@ -1539,17 +1774,10 @@ function drawHalftime() {
   ctx.shadowColor = 'transparent';
   ctx.globalAlpha = 1;
   // Background
-  drawBrickWall();
+  drawGraffitiWallHalftime();
 
-  // Court floor
+  // Free throw line marker
   var floorY = H * 0.78;
-  ctx.fillStyle = '#8B4513';
-  ctx.fillRect(0, floorY, W, H - floorY);
-  // Court lines
-  ctx.strokeStyle = 'rgba(255,200,100,0.5)';
-  ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
-  // Free throw line
   ctx.strokeStyle = 'rgba(255,200,100,0.3)';
   ctx.lineWidth = 1.5;
   ctx.setLineDash([6, 6]);
