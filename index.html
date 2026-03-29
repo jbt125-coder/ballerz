@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>HOOP ZONE</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%;
+  background: #1a0a00;
+  overflow: hidden;
+  font-family: 'Arial Black', Arial, sans-serif;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#gameCanvas {
+  display: block;
+  margin: 0 auto;
+  image-rendering: pixelated;
+}
+#ui {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+#overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.85);
+}
+#overlay.hidden { display: none; }
+
+.graffiti-title {
+font-size: clamp(36px, 10vw, 72px);
+font-weight: 900;
+letter-spacing: 4px;
+text-transform: uppercase;
+color: #ff6600;
+text-shadow: 4px 4px 0 #cc3300, 8px 8px 0 #661100,
+-2px -2px 0 #ff9900, 0 0 30px #ff6600;
+margin-bottom: 8px;
+font-style: italic;
+}
+.graffiti-sub {
+font-size: clamp(14px, 4vw, 22px);
+color: #ffcc00;
+letter-spacing: 2px;
+text-shadow: 2px 2px 0 #885500;
+margin-bottom: 30px;
+text-transform: uppercase;
+}
+.btn {
+background: linear-gradient(180deg, #ff6600, #cc3300);
+color: #fff;
+border: 4px solid #ff9900;
+border-radius: 8px;
+font-size: clamp(18px, 5vw, 28px);
+font-weight: 900;
+letter-spacing: 3px;
+padding: 14px 40px;
+cursor: pointer;
+text-transform: uppercase;
+text-shadow: 2px 2px 0 #440000;
+box-shadow: 0 6px 0 #881100, 0 0 20px #ff6600;
+-webkit-tap-highlight-color: transparent;
+margin: 8px;
+}
+.btn:active { transform: translateY(3px); box-shadow: 0 3px 0 #881100; }
+
+/* Stats overlay */
+#statsOverlay {
+position: fixed;
+top: 0; left: 0; right: 0; bottom: 0;
+z-index: 20;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+background: rgba(0,0,0,0.9);
+}
+#statsOverlay.hidden { display: none; }
+.stats-box {
+background: linear-gradient(180deg, #1a0500, #2a0800);
+border: 3px solid #ff6600;
+border-radius: 12px;
+padding: 20px 30px;
+min-width: 280px;
+max-width: 90vw;
+text-align: center;
+box-shadow: 0 0 30px #ff6600;
+}
+.stats-title {
+color: #ff6600;
+font-size: clamp(20px, 6vw, 32px);
+font-weight: 900;
+letter-spacing: 3px;
+text-shadow: 2px 2px 0 #881100;
+margin-bottom: 12px;
+font-style: italic;
+}
+.stats-row {
+color: #ffcc00;
+font-size: clamp(13px, 3.5vw, 18px);
+margin: 6px 0;
+display: flex;
+justify-content: space-between;
+gap: 20px;
+}
+.stats-row span:last-child { color: #fff; font-weight: 700; }
+.stats-total {
+color: #ff9900;
+font-size: clamp(18px, 5vw, 28px);
+font-weight: 900;
+margin-top: 14px;
+letter-spacing: 2px;
+text-shadow: 2px 2px 0 #441100;
+}
+</style>
+
+</head>
+<body>
+
+<canvas id="gameCanvas"></canvas>
+
+<!-- Start Screen -->
+
+<div id="overlay">
+  <div class="graffiti-title">HOOP ZONE</div>
+  <div class="graffiti-sub">4 Quarters · Tap to Shoot</div>
+  <button class="btn" id="startBtn">START GAME</button>
+</div>
+
+<!-- Quarter Stats -->
+
+<div id="statsOverlay" class="hidden">
+  <div class="stats-box">
+    <div class="stats-title" id="statsTitle">END OF Q1</div>
+    <div class="stats-row"><span>Baskets Made:</span><span id="statBaskets">0</span></div>
+    <div class="stats-row"><span>Quarter Score:</span><span id="statQScore">0</span></div>
+    <div class="stats-row"><span>Best Streak:</span><span id="statStreak">0</span></div>
+    <div class="stats-row"><span>Streak Bonus:</span><span id="statBonus">+0</span></div>
+    <div class="stats-total" id="statTotal">TOTAL: 0</div>
+    <button class="btn" id="continueBtn">CONTINUE</button>
+  </div>
+</div>
+
+<!-- Final Score -->
+
+<div id="finalOverlay" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:25;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.92);">
+  <div class="stats-box">
+    <div class="graffiti-title" style="font-size:clamp(28px,8vw,52px);margin-bottom:10px;">GAME OVER</div>
+    <div id="qBreakdown"></div>
+    <div class="stats-total" id="finalTotal" style="font-size:clamp(22px,6vw,36px);margin-top:16px;">FINAL: 0</div>
+    <button class="btn" id="playAgainBtn">PLAY AGAIN</button>
+  </div>
+</div>
+
+<!-- Halftime Intro -->
+
+<div id="halftimeIntro" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:22;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);">
+  <div class="stats-box" style="max-width:85vw;">
+    <div class="graffiti-title" style="font-size:clamp(28px,8vw,48px);margin-bottom:6px;">HALFTIME!</div>
+    <div class="graffiti-sub" style="font-size:clamp(12px,3.5vw,18px);margin-bottom:14px;">BONUS ROUND</div>
+    <div style="color:#ffcc00;font-size:clamp(12px,3.2vw,16px);margin-bottom:6px;line-height:1.6;">
+      3 rounds · 20 secs each<br>
+      Tap player when cursor is near the rim<br>
+      Free throw &rarr; 3PT &rarr; Half Court
+    </div>
+    <button class="btn" id="halftimeStartBtn">LET'S GO!</button>
+  </div>
+</div>
+
+<!-- Halftime Done -->
+
+<div id="halftimeDone" class="hidden" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:22;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.88);">
+  <div class="stats-box">
+    <div class="graffiti-title" style="font-size:clamp(24px,7vw,44px);margin-bottom:8px;">HALFTIME DONE</div>
+    <div class="stats-row"><span>Free Throws:</span><span id="htFT">0</span></div>
+    <div class="stats-row"><span>3-Pointers:</span><span id="ht3P">0</span></div>
+    <div class="stats-row"><span>Half Court:</span><span id="htHC">0</span></div>
+    <div class="stats-total" id="htTotal">BONUS: 0 pts</div>
+    <button class="btn" id="halftimeDoneBtn">Q3 &rarr;</button>
+  </div>
+</div>
+
+<script>
+// ---- CANVAS SETUP ----
+var canvas = document.getElementById('gameCanvas');
+var ctx = canvas.getContext('2d');
+
+// roundRect polyfill for older WebKit
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    r = Math.min(r, Math.abs(w) / 2, Math.abs(h) / 2);
+    this.beginPath();
+    this.moveTo(x + r, y);
+    this.lineTo(x + w - r, y);
+    this.arcTo(x + w, y, x + w, y + r, r);
+    this.lineTo(x + w, y + h - r);
+    this.arcTo(x + w, y + h, x + w - r, y + h, r);
+    this.lineTo(x + r, y + h);
+    this.arcTo(x, y + h, x, y + h - r, r);
+    this.lineTo(x, y + r);
+    this.arcTo(x, y, x + r, y, r);
+    this.closePath();
+  };
+}
+
+var W, H, isLandscape;
+function resize() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+  isLandscape = W > H;
+}
+resize();
+window.addEventListener('resize', function() { resize(); });
+
+// ---- AUDIO ----
+var audioCtx = null;
+function getAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playSwish() {
+  var acS = getAudio();
+  var dur = 0.55;
+  var bufS = acS.createBuffer(1, acS.sampleRate * dur, acS.sampleRate);
+  var dS = bufS.getChannelData(0);
+  for (var si = 0; si < dS.length; si++) {
+    var env = Math.sin(Math.PI * si / dS.length); // smooth in/out
+    dS[si] = (Math.random() * 2 - 1) * env * 0.35;
+  }
+  var srcS = acS.createBufferSource();
+  srcS.buffer = bufS;
+  // bandpass sweep - like fabric/net swoosh
+  var filtS = acS.createBiquadFilter();
+  filtS.type = 'bandpass';
+  filtS.frequency.setValueAtTime(800, acS.currentTime);
+  filtS.frequency.exponentialRampToValueAtTime(2800, acS.currentTime + 0.15);
+  filtS.frequency.exponentialRampToValueAtTime(600, acS.currentTime + dur);
+  filtS.Q.value = 1.8;
+  var gainS = acS.createGain();
+  gainS.gain.setValueAtTime(0.55, acS.currentTime);
+  gainS.gain.exponentialRampToValueAtTime(0.001, acS.currentTime + dur);
+  srcS.connect(filtS);
+  filtS.connect(gainS);
+  gainS.connect(acS.destination);
+  srcS.start();
+  // soft rim ping - quiet metallic tap
+  var oscS = acS.createOscillator();
+  var gainS2 = acS.createGain();
+  oscS.type = 'sine';
+  oscS.frequency.setValueAtTime(520, acS.currentTime);
+  oscS.frequency.exponentialRampToValueAtTime(380, acS.currentTime + 0.12);
+  gainS2.gain.setValueAtTime(0.12, acS.currentTime);
+  gainS2.gain.exponentialRampToValueAtTime(0.001, acS.currentTime + 0.18);
+  oscS.connect(gainS2);
+  gainS2.connect(acS.destination);
+  oscS.start(); oscS.stop(acS.currentTime + 0.18);
+}
+function playBrick() {
+  var acB = getAudio();
+  var oscB = acB.createOscillator();
+  var gainB = acB.createGain();
+  oscB.type = 'square';
+  oscB.frequency.setValueAtTime(200, acB.currentTime);
+  oscB.frequency.exponentialRampToValueAtTime(80, acB.currentTime + 0.15);
+  gainB.gain.setValueAtTime(0.4, acB.currentTime);
+  gainB.gain.exponentialRampToValueAtTime(0.001, acB.currentTime + 0.2);
+  oscB.connect(gainB); gainB.connect(acB.destination);
+  oscB.start(); oscB.stop(acB.currentTime + 0.2);
+}
+function playBuzzer() {
+  var acZ = getAudio();
+  var oscZ = acZ.createOscillator();
+  var gainZ = acZ.createGain();
+  oscZ.type = 'sawtooth';
+  oscZ.frequency.value = 120;
+  gainZ.gain.setValueAtTime(0.6, acZ.currentTime);
+  gainZ.gain.setValueAtTime(0.6, acZ.currentTime + 0.5);
+  gainZ.gain.exponentialRampToValueAtTime(0.001, acZ.currentTime + 0.8);
+  oscZ.connect(gainZ); gainZ.connect(acZ.destination);
+  oscZ.start(); oscZ.stop(acZ.currentTime + 0.8);
+}
+function playCrowd() {
+  var acC = getAudio();
+  var bufC = acC.createBuffer(1, acC.sampleRate * 0.6, acC.sampleRate);
+  var dC = bufC.getChannelData(0);
+  for (var ci = 0; ci < dC.length; ci++) {
+    dC[ci] = (Math.random() * 2 - 1) * Math.sin(ci * 0.01) * 0.3;
+  }
+  var srcC = acC.createBufferSource();
+  srcC.buffer = bufC;
+  var filtC = acC.createBiquadFilter();
+  filtC.type = 'lowpass';
+  filtC.frequency.value = 800;
+  var gainC = acC.createGain();
+  gainC.gain.setValueAtTime(0, acC.currentTime);
+  gainC.gain.linearRampToValueAtTime(0.5, acC.currentTime + 0.1);
+  gainC.gain.linearRampToValueAtTime(0, acC.currentTime + 0.6);
+  srcC.connect(filtC); filtC.connect(gainC); gainC.connect(acC.destination);
+  srcC.start();
+}
+function playShoot() {
+  var acH = getAudio();
+  var oscH = acH.createOscillator();
+  var gainH = acH.createGain();
+  oscH.type = 'sine';
+  oscH.frequency.setValueAtTime(300, acH.currentTime);
+  oscH.frequency.exponentialRampToValueAtTime(150, acH.currentTime + 0.1);
+  gainH.gain.setValueAtTime(0.15, acH.currentTime);
+  gainH.gain.exponentialRampToValueAtTime(0.001, acH.currentTime + 0.12);
+  oscH.connect(gainH); gainH.connect(acH.destination);
+  oscH.start(); oscH.stop(acH.currentTime + 0.12);
+}
+
+// ---- GAME STATE ----
+var STATE = {
+  TITLE: 0, PLAYING: 1, STATS: 2, HALFTIME_INTRO: 3, HALFTIME: 4, HALFTIME_DONE: 5, FINAL: 6
+};
+var gameState = STATE.TITLE;
+
+var QUARTER_TIME = 30;
+var quarters = 4;
+var currentQuarter = 1;
+var quarterTimer = QUARTER_TIME;
+var lastTime = 0;
+var totalScore = 0;
+var quarterScores = [];
+var quarterBaskets = [];
+var quarterStreaks = [];
+var quarterBonuses = [];
+
+// Per-quarter stats
+var score = 0;
+var baskets = 0;
+var streak = 0;
+var bestStreak = 0;
+
+// Hoop
+var hoopX = 0.5; // 0..1 normalized
+var hoopDir = 1;
+var hoopSpeed = 0.18; // fraction of screen per second
+
+// Ball states
+var balls = []; // active balls in flight
+
+// Players - 4 zones
+// animPhase: 0=ready, 1=coil, 2=ascend, 3=apex, 4=followthrough
+// ANIM_SHOOT total = 0.8s across frames 0-4, then 0.5s hold at 4, then snap to 0
+var ANIM_SHOOT_DUR = 0.8;   // time for full 5-frame shoot sequence
+var ANIM_HOLD_DUR  = 0.5;   // hold follow-through before reset
+// frame boundaries (fraction of ANIM_SHOOT_DUR)
+var FRAME_T = [0, 0.15, 0.38, 0.62, 0.82]; // when each frame starts
+
+var players = [
+  { zone: 0, animPhase: 0, shootT: 0, shooting: false },
+  { zone: 1, animPhase: 0, shootT: 0, shooting: false },
+  { zone: 2, animPhase: 0, shootT: 0, shooting: false },
+  { zone: 3, animPhase: 0, shootT: 0, shooting: false }
+];
+
+// Graffiti effects
+var effects = [];
+
+// Streak-based tier progression
+// Every 5 consecutive makes = next tier up. Any miss = back to tier 0.
+// Tiers: 0=2pt slow, 1=3pt, 2=5pt, 3=7pt, 4=10pt blazing
+var TIERS = [
+  { pts: 2,  speed: 0.15, label: '2PT' },
+  { pts: 3,  speed: 0.22, label: '3PT' },
+  { pts: 5,  speed: 0.30, label: '5PT' },
+  { pts: 7,  speed: 0.40, label: '7PT' },
+  { pts: 10, speed: 0.52, label: '10PT' }
+];
+var currentTier = 0;
+var tierStreak = 0; // consecutive makes within current tier
+
+function getTier() { return TIERS[currentTier]; }
+
+function onMake() {
+  tierStreak++;
+  if (tierStreak >= 5 && currentTier < TIERS.length - 1) {
+    currentTier++;
+    tierStreak = 0;
+    var t = getTier();
+    addEffect(t.label + ' MODE!', '#ffffff', W * 0.5, H * 0.45);
+  }
+}
+
+function onMiss() {
+  currentTier = 0;
+  tierStreak = 0;
+}
+
+// Ball shoots STRAIGHT UP from player's X
+// Phase system: 'rising' -> hits rim -> 'through' (swish) or 'bounce' (brick/airball)
+var FIXED_TRAVEL_TIME = 0.5;
+
+function computeArc(playerX) {
+  var startY = H * (isLandscape ? 0.65 : 0.72);
+  var endY   = getHoopPixelY();
+  return { startX: playerX, startY: startY, endX: playerX, endY: endY };
+}
+
+function getHoopPixelX() { return hoopX * W; }
+
+function getHoopPixelY() {
+  return H * (isLandscape ? 0.25 : 0.22);
+}
+
+function getPlayerInfo(zone) {
+  var zoneW = W / 4;
+  var cx = zoneW * zone + zoneW / 2;
+  var py = H * (isLandscape ? 0.72 : 0.78);
+  return { cx: cx, py: py };
+}
+
+function shootBall(zone) {
+  if (gameState !== STATE.PLAYING) return;
+  var info = getPlayerInfo(zone);
+
+  var hoopPX = getHoopPixelX();
+  var hoopDist = Math.abs(hoopPX - info.cx);
+  // Is hoop currently moving toward this player's X?
+  var hoopApproaching = (hoopDir > 0 && hoopPX < info.cx) || (hoopDir < 0 && hoopPX > info.cx);
+  var result = evalShot(hoopDist, hoopApproaching, info.cx);
+
+  var arc = computeArc(info.cx);
+
+  balls.push({
+    arc: arc,
+    t: 0,
+    duration: FIXED_TRAVEL_TIME,
+    result: result,
+    zone: zone,
+    phase: 'rising',
+    phaseT: 0,
+    rimX: 0, rimY: 0,
+    vx: 0, vy: 0
+  });
+
+  players[zone].shooting = true;
+  players[zone].shootT = 0;
+  players[zone].animPhase = 0;
+  playShoot();
+}
+
+// Swish window is LEADING - reward tapping just BEFORE the hoop reaches the player X
+function evalShot(hoopDist, hoopApproaching, playerX) {
+  var rimW = W * 0.06;
+  var leadBonus = hoopApproaching ? rimW * 1.8 : rimW * 0.4;
+  var swishW = rimW * 2.0 + leadBonus;
+  var brickW = rimW * 3.5 + leadBonus;
+  if (hoopDist < swishW) return 'swish';
+  if (hoopDist < brickW) return 'brick';
+  return 'airball';
+}
+
+function addEffect(text, color, x, y) {
+  effects.push({
+    text: text, color: color,
+    x: x, y: y,
+    alpha: 1, scale: 1,
+    vy: -2.5, timer: 0, duration: 1.1
+  });
+}
+
+// ---- DRAWING ----
+function drawBrickWall() {
+  // Background brick wall
+  ctx.fillStyle = '#2a0d00';
+  ctx.fillRect(0, 0, W, H);
+
+  // Brick pattern
+  var bw = W * 0.08, bh = H * 0.045;
+  ctx.strokeStyle = '#1a0800';
+  ctx.lineWidth = 1.5;
+  for (var row = 0; row < H / bh + 1; row++) {
+    var offset = (row % 2 === 0) ? 0 : bw / 2;
+    for (var col = -1; col < W / bw + 1; col++) {
+      var bx = col * bw + offset;
+      var by = row * bh;
+      // Slight color variation
+      var shade = 0.85 + Math.sin(row * 7 + col * 13) * 0.08;
+      ctx.fillStyle = 'rgba(' + Math.floor(80 * shade) + ',' + Math.floor(30 * shade) + ',' + Math.floor(5 * shade) + ',1)';
+      ctx.fillRect(bx + 1, by + 1, bw - 2, bh - 2);
+      ctx.strokeRect(bx, by, bw, bh);
+    }
+  }
+
+  // Court floor gradient at bottom
+  var floorY = H * (isLandscape ? 0.6 : 0.65);
+  var grad = ctx.createLinearGradient(0, floorY, 0, H);
+  grad.addColorStop(0, 'rgba(120,60,0,0.6)');
+  grad.addColorStop(1, 'rgba(60,20,0,0.9)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, floorY, W, H - floorY);
+
+  // Court line
+  ctx.strokeStyle = 'rgba(255,180,80,0.3)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, floorY);
+  ctx.lineTo(W, floorY);
+  ctx.stroke();
+}
+
+function drawHoop() {
+  var hx = getHoopPixelX();
+  var hy = getHoopPixelY();
+  var rimW = W * 0.06;
+  var rimH = rimW * 0.22;
+
+  // Backboard
+  var bbW = rimW * 2.2, bbH = rimW * 1.4;
+  ctx.fillStyle = '#ddeeff';
+  ctx.fillRect(hx - bbW / 2, hy - bbH - rimH * 0.5, bbW, bbH);
+  ctx.strokeStyle = '#ff3300';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(hx - bbW / 2, hy - bbH - rimH * 0.5, bbW, bbH);
+  // Inner square
+  ctx.strokeStyle = '#ff3300';
+  ctx.lineWidth = 2;
+  var sq = bbW * 0.35;
+  ctx.strokeRect(hx - sq / 2, hy - rimH * 0.5 - sq * 1.1, sq, sq * 0.7);
+
+  // Support arm from top
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(hx, 0);
+  ctx.lineTo(hx, hy - bbH - rimH * 0.5);
+  ctx.stroke();
+
+  // Rim (ellipse)
+  ctx.strokeStyle = '#ff5500';
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.ellipse(hx, hy, rimW, rimH, 0, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Net
+  drawNet(hx, hy, rimW, rimH);
+}
+
+function drawNet(hx, hy, rimW, rimH) {
+  var netH = rimH * 3.5;
+  var segments = 6;
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 1;
+  // Vertical lines
+  for (var i = 0; i <= segments; i++) {
+    var frac = i / segments;
+    var topX = hx + (frac * 2 - 1) * rimW;
+    var botX = hx + (frac * 2 - 1) * rimW * 0.4;
+    ctx.beginPath();
+    ctx.moveTo(topX, hy + rimH * 0.5);
+    ctx.lineTo(botX, hy + rimH * 0.5 + netH);
+    ctx.stroke();
+  }
+  // Horizontal lines
+  var rows = 4;
+  for (var r = 1; r <= rows; r++) {
+    var frac2 = r / rows;
+    var y = hy + rimH * 0.5 + netH * frac2;
+    var xw = rimW * (1 - frac2 * 0.6);
+    ctx.beginPath();
+    ctx.moveTo(hx - xw, y);
+    ctx.lineTo(hx + xw, y);
+    ctx.stroke();
+  }
+}
+
+// ---- ARM HELPER (no nested functions - WKWebView safe) ----
+function drawArmSegment(u, sx, sy, uAng, lAng, uLen, lLen, sw, skinC) {
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(uAng);
+  ctx.fillStyle = skinC;
+  // upper arm
+  ctx.fillRect(-sw * 0.5, 0, sw, uLen);
+  // elbow
+  ctx.beginPath();
+  ctx.arc(0, uLen, sw * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  // forearm
+  ctx.translate(0, uLen);
+  ctx.rotate(lAng);
+  ctx.fillRect(-sw * 0.44, 0, sw * 0.88, lLen);
+  // hand
+  ctx.beginPath();
+  ctx.arc(0, lLen, sw * 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ---- PLAYER (BACK VIEW, 5 FRAMES) ----
+// phase: 0=ready, 1=coil, 2=ascend, 3=apex, 4=followthrough
+function drawPlayer(cx, py, zone, phase) {
+  var u = Math.min(W / 4, H * 0.28) * 0.088;
+  var skin = '#b8806a';
+  var red  = '#cc1111';
+
+  // --- per-phase geometry ---
+  // crouchY: body drops down (positive=down), jumpY: body lifts (positive=up)
+  var crouchY = 0, jumpY = 0, kneeBend = 0, legsSpread = 0;
+  // arm angles: upper from vertical-down, lower relative to upper
+  var LAup = 0.2,  LAlo = 0.0;
+  var RAup = -0.2, RAlo = 0.0;
+  var showBall = false, ballY = 0;
+
+  if (phase === 0) {
+    // READY - arms hang relaxed at sides, no ball
+    crouchY = 0; jumpY = 0; kneeBend = 0;
+    LAup = 0.2;  LAlo = 0.1;
+    RAup = -0.2; RAlo = -0.1;
+    showBall = false;
+
+  } else if (phase === 1) {
+    // POWER COIL - deep squat, ball on floor between feet
+    crouchY = u * 2.2; jumpY = 0; kneeBend = 1.0;
+    LAup = 0.7;  LAlo = 0.8;   // arms hang down to ball on ground
+    RAup = -0.7; RAlo = -0.8;
+    showBall = true; ballY = u * 0.5; // ball near floor
+
+  } else if (phase === 2) {
+    // ASCENSION - rising, ball at forehead, elbows flared wide
+    crouchY = 0; jumpY = u * 0.6; kneeBend = 0.15;
+    LAup = -1.0; LAlo = -0.9;  // upper arm up-left, forearm tucks in under ball
+    RAup =  1.0; RAlo =  0.9;
+    showBall = true; ballY = -u * 10.8; // ball at forehead height
+
+  } else if (phase === 3) {
+    // APEX - airborne, arms straight up, ball released
+    crouchY = 0; jumpY = u * 1.6; kneeBend = 0.0; legsSpread = u * 0.35;
+    LAup = -Math.PI * 0.48; LAlo = -0.05;
+    RAup =  Math.PI * 0.48; RAlo =  0.05;
+    showBall = false;
+
+  } else if (phase === 4) {
+    // FOLLOW-THROUGH - back on ground, arms up with wrists flopped out
+    crouchY = 0; jumpY = 0; kneeBend = 0; legsSpread = u * 0.15;
+    LAup = -Math.PI * 0.44; LAlo = 0.4;
+    RAup =  Math.PI * 0.44; RAlo = -0.4;
+    showBall = false;
+  }
+
+  var baseY = crouchY - jumpY;
+
+  ctx.save();
+  ctx.translate(cx, py);
+
+  // shadow
+  var shScale = (phase === 3) ? 1.6 : (phase === 1) ? 0.7 : 1.0;
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(0, 1, u * 2.1 * shScale, u * 0.4, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(0, -baseY);
+
+  var sL = -legsSpread, sR = legsSpread;
+  var kneeY = -u * 3.0 + kneeBend * u * 2.2;
+  var hipY  = -u * 5.4;
+  var shdY  = -u * 8.6;
+  var headY = shdY - u * 2.2;
+  var armW  = u * 0.68;
+  var uLen  = u * 2.0;
+  var lLen  = u * 1.8;
+
+  // ---- SHOES ----
+  ctx.fillStyle = '#cc2200';
+  // left
+  ctx.beginPath();
+  ctx.moveTo(sL - u*1.55, baseY);
+  ctx.lineTo(sL + u*0.2,  baseY);
+  ctx.lineTo(sL + u*0.2,  baseY - u*0.9);
+  ctx.lineTo(sL - u*1.3,  baseY - u*0.9);
+  ctx.closePath(); ctx.fill();
+  // right
+  ctx.beginPath();
+  ctx.moveTo(sR + u*1.55, baseY);
+  ctx.lineTo(sR - u*0.2,  baseY);
+  ctx.lineTo(sR - u*0.2,  baseY - u*0.9);
+  ctx.lineTo(sR + u*1.3,  baseY - u*0.9);
+  ctx.closePath(); ctx.fill();
+  // sole stripe
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(sL - u*1.45, baseY - u*0.32, u*1.4, u*0.16);
+  ctx.fillRect(sR - u*0.0,  baseY - u*0.32, u*1.4, u*0.16);
+  // ankle collar
+  ctx.fillStyle = '#dd3300';
+  ctx.fillRect(sL - u*1.25, baseY - u*0.9, u*1.1, u*0.22);
+  ctx.fillRect(sR - u*0.1,  baseY - u*0.9, u*1.1, u*0.22);
+
+  // ---- SOCKS ----
+  ctx.fillStyle = '#eee';
+  ctx.fillRect(sL - u*1.05, baseY - u*1.7, u*0.85, u*0.88);
+  ctx.fillRect(sR + u*0.2,  baseY - u*1.7, u*0.85, u*0.88);
+
+  // ---- SHINS ----
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.moveTo(sL - u*1.0, kneeY); ctx.lineTo(sL - u*0.1, kneeY);
+  ctx.lineTo(sL + u*0.1, baseY - u*1.7); ctx.lineTo(sL - u*0.9, baseY - u*1.7);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(sR + u*0.1, kneeY); ctx.lineTo(sR + u*1.0, kneeY);
+  ctx.lineTo(sR + u*0.9, baseY - u*1.7); ctx.lineTo(sR - u*0.1, baseY - u*1.7);
+  ctx.closePath(); ctx.fill();
+
+  // ---- SHORTS ----
+  ctx.fillStyle = red;
+  ctx.beginPath();
+  ctx.moveTo(-u*1.75, hipY + u*0.3);
+  ctx.lineTo( u*1.75, hipY + u*0.3);
+  ctx.lineTo( u*1.5,  kneeY + u*0.4);
+  ctx.lineTo( sR + u*0.8, kneeY + u*0.4);
+  ctx.lineTo( sR + u*0.8, kneeY);
+  ctx.lineTo( u*0.1,  kneeY);
+  ctx.lineTo(-u*0.1,  kneeY);
+  ctx.lineTo( sL - u*0.8, kneeY);
+  ctx.lineTo( sL - u*0.8, kneeY + u*0.4);
+  ctx.lineTo(-u*1.5,  kneeY + u*0.4);
+  ctx.closePath(); ctx.fill();
+  // stripe
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-u*1.65, hipY+u*0.5, u*0.18, u*1.9);
+  ctx.fillRect( u*1.47, hipY+u*0.5, u*0.18, u*1.9);
+  // thighs
+  ctx.fillStyle = skin;
+  ctx.fillRect(sL - u*0.95, kneeY, u*0.9, u*1.6);
+  ctx.fillRect(sR + u*0.05, kneeY, u*0.9, u*1.6);
+
+  // ---- JERSEY ----
+  ctx.fillStyle = red;
+  ctx.beginPath();
+  ctx.moveTo(-u*1.8, shdY);
+  ctx.lineTo( u*1.8, shdY);
+  ctx.lineTo( u*1.6, hipY);
+  ctx.lineTo(-u*1.6, hipY);
+  ctx.closePath(); ctx.fill();
+  // side stripes
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(-u*1.72, shdY+u*0.2, u*0.18, u*2.8);
+  ctx.fillRect( u*1.54, shdY+u*0.2, u*0.18, u*2.8);
+  // number
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold ' + (u*1.6) + 'px Arial Black';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(zone + 1, 0, shdY + u*1.9);
+
+  // ---- ARMS ----
+  ctx.fillStyle = skin;
+  drawArmSegment(u, -u*1.8, shdY+u*0.4, LAup, LAlo, uLen, lLen, armW, skin);
+  drawArmSegment(u,  u*1.8, shdY+u*0.4, RAup, RAlo, uLen, lLen, armW, skin);
+
+  // ---- BALL IN HANDS (phases 1 & 2) ----
+  if (showBall) {
+    var br = u * 0.88;
+    ctx.fillStyle = '#ff6600';
+    ctx.beginPath();
+    ctx.arc(0, ballY, br, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#441100';
+    ctx.lineWidth = u * 0.1;
+    ctx.stroke();
+    ctx.lineWidth = u * 0.07;
+    ctx.beginPath();
+    ctx.moveTo(-br, ballY); ctx.lineTo(br, ballY); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, ballY, br*0.6, -Math.PI*0.5, Math.PI*0.5); ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, ballY, br*0.6, Math.PI*0.5, Math.PI*1.5);  ctx.stroke();
+  }
+
+  // ---- NECK ----
+  ctx.fillStyle = skin;
+  ctx.fillRect(-u*0.35, shdY - u*0.55, u*0.7, u*0.65);
+
+  // ---- HEAD (back view) ----
+  // full head shape in skin first
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(0, headY, u*1.2, u*1.35, 0, 0, Math.PI*2);
+  ctx.fill();
+  // hair covers top and sides - dark cap
+  ctx.fillStyle = '#1a0900';
+  ctx.beginPath();
+  ctx.ellipse(0, headY - u*0.1, u*1.22, u*1.15, 0, Math.PI, 0); // top half = hair
+  ctx.fill();
+  // hair also visible below headband as short stubble/fade
+  ctx.fillStyle = '#2a1200';
+  ctx.beginPath();
+  ctx.ellipse(0, headY + u*0.62, u*1.08, u*0.48, 0, 0, Math.PI); // lower arc = short hair
+  ctx.fill();
+  // green headband sits over the hair
+  ctx.fillStyle = '#22aa22';
+  ctx.beginPath();
+  ctx.ellipse(0, headY + u*0.1, u*1.24, u*0.38, 0, 0, Math.PI*2);
+  ctx.fill();
+  // thin headband top highlight
+  ctx.fillStyle = '#44cc44';
+  ctx.beginPath();
+  ctx.ellipse(0, headY - u*0.18, u*1.22, u*0.2, 0, Math.PI, 0);
+  ctx.fill();
+  // skin of lower back head below hair (neck join)
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(0, headY + u*1.0, u*0.72, u*0.42, 0, 0, Math.PI*2);
+  ctx.fill();
+  // ears
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(-u*1.18, headY+u*0.1, u*0.2, u*0.3, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse( u*1.18, headY+u*0.1, u*0.2, u*0.3, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore(); // body offset
+  ctx.restore(); // player cx,py
+}
+
+function drawBall(bx, by, radius) {
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+  ctx.fillStyle = '#ff6600';
+  ctx.fill();
+  ctx.strokeStyle = '#441100';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-radius, 0); ctx.lineTo(radius, 0); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -radius);
+  ctx.bezierCurveTo(radius*0.4, -radius*0.4, radius*0.4, radius*0.4, 0, radius);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(0, -radius);
+  ctx.bezierCurveTo(-radius*0.4, -radius*0.4, -radius*0.4, radius*0.4, 0, radius);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function ballPosOnArc(arc, t) {
+  return {
+    x: arc.startX + (arc.endX - arc.startX) * t,
+    y: arc.startY + (arc.endY - arc.startY) * t
+  };
+}
+
+function drawHUD() {
+  // Top bar background
+  ctx.fillStyle = 'rgba(0,0,0,0.75)';
+  ctx.fillRect(0, 0, W, H * 0.09);
+
+  var barH = H * 0.09;
+  var fs = barH * 0.38;
+
+  // Quarter
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = 'bold ' + fs + 'px Arial Black';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('Q' + currentQuarter, W * 0.03, barH * 0.5);
+
+  // Timer
+  var mins = Math.floor(quarterTimer / 60);
+  var secs = Math.floor(quarterTimer % 60);
+  var timerStr = mins + ':' + (secs < 10 ? '0' : '') + secs;
+  ctx.fillStyle = quarterTimer <= 10 ? '#ff3300' : '#ffffff';
+  ctx.font = 'bold ' + (fs * 1.1) + 'px Arial Black';
+  ctx.textAlign = 'center';
+  ctx.fillText(timerStr, W * 0.5, barH * 0.5);
+
+  // Score
+  ctx.fillStyle = '#ff9900';
+  ctx.font = 'bold ' + fs + 'px Arial Black';
+  ctx.textAlign = 'right';
+  ctx.fillText(totalScore + ' PTS', W * 0.97, barH * 0.5);
+
+  // Tier indicator
+  var tier = getTier();
+  var tierColor = currentTier === 4 ? '#ff00ff' : currentTier === 3 ? '#ff4400' : currentTier === 2 ? '#ffaa00' : currentTier === 1 ? '#00ccff' : '#88ff44';
+  ctx.fillStyle = tierColor;
+  ctx.font = 'bold ' + (fs * 0.78) + 'px Arial Black';
+  ctx.textAlign = 'left';
+  ctx.fillText(tier.label + ' MODE', W * 0.03, barH * 0.82);
+
+  // Streak pip dots toward next tier
+  if (currentTier < TIERS.length - 1) {
+    var pipX = W * 0.03;
+    var pipY = barH * 0.96;
+    var pipR = barH * 0.07;
+    for (var d = 0; d < 5; d++) {
+      ctx.beginPath();
+      ctx.arc(pipX + d * pipR * 2.8, pipY, pipR, 0, Math.PI * 2);
+      ctx.fillStyle = d < tierStreak ? tierColor : 'rgba(255,255,255,0.2)';
+      ctx.fill();
+    }
+  } else {
+    ctx.fillStyle = '#ff00ff';
+    ctx.font = 'bold ' + (fs * 0.6) + 'px Arial Black';
+    ctx.textAlign = 'left';
+    ctx.fillText('MAX SPEED', W * 0.03, barH * 0.96);
+  }
+
+  // Streak
+  if (streak >= 2) {
+    ctx.fillStyle = '#ffcc00';
+    ctx.textAlign = 'right';
+    ctx.fillText(streak + 'x', W * 0.97, barH * 0.82);
+  }
+
+  // Zone dividers (tap zones)
+  var zoneW = W / 4;
+  ctx.strokeStyle = 'rgba(255,150,0,0.2)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  for (var i = 1; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(zoneW * i, H * 0.09);
+    ctx.lineTo(zoneW * i, H);
+    ctx.stroke();
+  }
+  ctx.setLineDash([]);
+}
+
+function drawEffects() {
+  for (var i = 0; i < effects.length; i++) {
+    var e = effects[i];
+    ctx.save();
+    ctx.globalAlpha = e.alpha;
+    ctx.translate(e.x, e.y);
+    ctx.scale(e.scale, e.scale);
+
+    var fs = W * 0.065;
+    ctx.font = 'bold italic ' + fs + 'px Arial Black';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Shadow
+    ctx.fillStyle = '#000';
+    ctx.fillText(e.text, 3, 3);
+    // Main
+    ctx.fillStyle = e.color;
+    ctx.fillText(e.text, 0, 0);
+
+    ctx.restore();
+  }
+}
+
+// ---- UPDATE ----
+function update(dt) {
+  if (gameState === STATE.HALFTIME) { updateHalftime(dt); return; }
+  if (gameState !== STATE.PLAYING) return;
+
+  // Timer
+  quarterTimer -= dt;
+  if (quarterTimer <= 0) {
+    quarterTimer = 0;
+    endQuarter();
+    return;
+  }
+
+  // Hoop movement
+  hoopX += hoopDir * getTier().speed * dt;
+  if (hoopX >= 0.92) { hoopX = 0.92; hoopDir = -1; }
+  if (hoopX <= 0.08) { hoopX = 0.08; hoopDir = 1; }
+
+  // Update balls
+  for (var i = balls.length - 1; i >= 0; i--) {
+    var ball = balls[i];
+
+    if (ball.phase === 'rising') {
+      ball.t += dt / ball.duration;
+      if (ball.t >= 1) {
+        ball.t = 1;
+        ball.rimX = ball.arc.endX;
+        ball.rimY = ball.arc.endY;
+        ball.phaseT = 0;
+        var binfo = getPlayerInfo(ball.zone);
+
+        if (ball.result === 'airball') {
+          ball.phase = 'vanish';
+          onMiss();
+          streak = 0;
+          addEffect('AIRBALL', '#ff8800', binfo.cx, ball.rimY);
+
+        } else if (ball.result === 'brick') {
+          ball.phase = 'bounce';
+          playBrick();
+          onMiss();
+          streak = 0;
+          var bdir = (ball.arc.startX < getHoopPixelX()) ? 1 : -1;
+          ball.vx = bdir * W * 0.22;
+          ball.vy = -H * 0.32;
+          addEffect('oh...', '#ffaa00', binfo.cx, ball.rimY - H * 0.06);
+          ball.ohShown = true;
+          ball.nopeShown = false;
+
+        } else {
+          ball.phase = 'through';
+          playSwish();
+          playCrowd();
+          var tierNow = getTier();
+          score += tierNow.pts;
+          totalScore += tierNow.pts;
+          baskets++;
+          streak++;
+          if (streak > bestStreak) bestStreak = streak;
+          onMake();
+          addEffect('YEAH! +' + tierNow.pts, '#00ff88', binfo.cx, ball.rimY - H * 0.06);
+          if (streak >= 3) addEffect(streak + 'x STREAK!', '#ffcc00', binfo.cx, ball.rimY - H * 0.12);
+        }
+      }
+
+    } else if (ball.phase === 'vanish') {
+      // Airball just fades out quickly at rim height
+      ball.phaseT += dt;
+      if (ball.phaseT > 0.25) balls.splice(i, 1);
+
+    } else if (ball.phase === 'through') {
+      ball.phaseT += dt;
+      if (ball.phaseT > 0.55) balls.splice(i, 1);
+
+    } else if (ball.phase === 'bounce') {
+      ball.phaseT += dt;
+      ball.vy += H * 1.0 * dt; // gravity
+      ball.rimX += ball.vx * dt;
+      ball.rimY += ball.vy * dt;
+      // After bounce peaks and starts falling - show "nope"
+      if (!ball.nopeShown && ball.vy > 0 && ball.phaseT > 0.18) {
+        ball.nopeShown = true;
+        var binfo2 = getPlayerInfo(ball.zone);
+        addEffect('nope', '#ff4400', binfo2.cx, ball.rimY);
+      }
+      if (ball.rimY > H + 40) balls.splice(i, 1);
+    }
+  }
+
+  // Update effects
+  for (var j = effects.length - 1; j >= 0; j--) {
+    var e = effects[j];
+    e.timer += dt;
+    var frac = e.timer / e.duration;
+    e.y += e.vy;
+    e.vy *= 0.96;
+    e.alpha = frac < 0.6 ? 1 : 1 - (frac - 0.6) / 0.4;
+    e.scale = frac < 0.1 ? frac / 0.1 * 1.2 : 1;
+    if (e.timer >= e.duration) effects.splice(j, 1);
+  }
+
+  // Player animation update
+  for (var p = 0; p < players.length; p++) {
+    var pl = players[p];
+    if (!pl.shooting) continue;
+    pl.shootT += dt;
+    if (pl.shootT < ANIM_SHOOT_DUR) {
+      // Determine current frame from time
+      var frac = pl.shootT / ANIM_SHOOT_DUR;
+      var frame = 0;
+      for (var f = FRAME_T.length - 1; f >= 0; f--) {
+        if (frac >= FRAME_T[f]) { frame = f; break; }
+      }
+      pl.animPhase = frame;
+    } else if (pl.shootT < ANIM_SHOOT_DUR + ANIM_HOLD_DUR) {
+      pl.animPhase = 4; // hold follow-through
+    } else {
+      pl.shooting = false;
+      pl.animPhase = 0;
+      pl.shootT = 0;
+    }
+  }
+}
+
+function endQuarter() {
+  playBuzzer();
+
+  var bonus = bestStreak >= 3 ? bestStreak : 0;
+  totalScore += bonus;
+
+  quarterScores.push(score);
+  quarterBaskets.push(baskets);
+  quarterStreaks.push(bestStreak);
+  quarterBonuses.push(bonus);
+
+  var isHalftime = (currentQuarter === 2);
+  var isFinal = (currentQuarter === 4);
+
+  document.getElementById('statsTitle').textContent = isFinal ? 'FINAL QUARTER' : 'END OF Q' + currentQuarter;
+  document.getElementById('statBaskets').textContent = baskets;
+  document.getElementById('statQScore').textContent = score;
+  document.getElementById('statStreak').textContent = bestStreak;
+  document.getElementById('statBonus').textContent = '+' + bonus;
+  document.getElementById('statTotal').textContent = 'TOTAL: ' + totalScore;
+
+  var continueBtn = document.getElementById('continueBtn');
+  if (isFinal) continueBtn.textContent = 'FINAL SCORE';
+  else if (isHalftime) continueBtn.textContent = 'HALFTIME!';
+  else continueBtn.textContent = 'NEXT QUARTER';
+
+  gameState = STATE.STATS;
+  document.getElementById('statsOverlay').classList.remove('hidden');
+}
+
+function startNextQuarter() {
+  document.getElementById('statsOverlay').classList.add('hidden');
+  currentQuarter++;
+
+  if (currentQuarter > 4) {
+    showFinal();
+    return;
+  }
+
+  // After Q2 ends -> halftime intro
+  if (currentQuarter === 3) {
+    showHalftimeIntro();
+    return;
+  }
+
+  beginQuarter();
+}
+
+function beginQuarter() {
+  score = 0;
+  baskets = 0;
+  streak = 0;
+  bestStreak = 0;
+  currentTier = 0;
+  tierStreak = 0;
+  quarterTimer = QUARTER_TIME;
+  balls = [];
+  effects = [];
+  gameState = STATE.PLAYING;
+}
+
+function showFinal() {
+  var breakdown = '';
+  for (var i = 0; i < 4; i++) {
+    breakdown += '<div class="stats-row"><span>Q' + (i + 1) + ' Score:</span><span>' +
+      quarterScores[i] + (quarterBonuses[i] > 0 ? ' (+' + quarterBonuses[i] + ' bonus)' : '') +
+      '</span></div>';
+  }
+  document.getElementById('qBreakdown').innerHTML = breakdown;
+  document.getElementById('finalTotal').textContent = 'FINAL SCORE: ' + totalScore;
+
+  var el = document.getElementById('finalOverlay');
+  el.style.display = 'flex';
+  gameState = STATE.FINAL;
+}
+
+function startGame() {
+  totalScore = 0;
+  currentQuarter = 1;
+  hoopX = 0.5;
+  hoopDir = 1;
+  quarterScores = [];
+  quarterBaskets = [];
+  quarterStreaks = [];
+  quarterBonuses = [];
+  htScores = [0, 0, 0];
+
+  document.getElementById('overlay').classList.add('hidden');
+  document.getElementById('statsOverlay').classList.add('hidden');
+  document.getElementById('finalOverlay').style.display = 'none';
+  document.getElementById('halftimeIntro').style.display = 'none';
+  document.getElementById('halftimeDone').style.display = 'none';
+  beginQuarter();
+}
+
+// ---- HALFTIME GAME ----
+var htScores = [0, 0, 0]; // FT, 3PT, HC made counts
+var htRound = 0;          // 0=FT, 1=3PT, 2=HC
+var htTimer = 20;
+var htCursorY = 0;        // normalized 0..1 position of cursor (0=top, 1=bottom)
+var htCursorDir = 1;
+var htBall = null;        // in-flight ball {x,y,tx,ty,t,dur,made}
+var htShooting = false;
+var htPlayerPhase = 0;    // 0=ready, 1=shooting, 2=followthrough
+
+// Round configs: cursor speed, player X fraction, points per make
+var HT_ROUNDS = [
+  { label: 'FREE THROW',  speed: 0.42, playerX: 0.22, pts: 1 },
+  { label: '3-POINTER',   speed: 0.58, playerX: 0.15, pts: 2 },
+  { label: 'HALF COURT',  speed: 0.75, playerX: 0.08, pts: 3 }
+];
+
+// Hoop position for halftime (fixed, right side)
+var HT_HOOP_X = 0.82;
+var HT_HOOP_Y_FRAC = 0.32;
+
+function showHalftimeIntro() {
+  gameState = STATE.HALFTIME_INTRO;
+  document.getElementById('halftimeIntro').style.display = 'flex';
+}
+
+function startHalftime() {
+  document.getElementById('halftimeIntro').style.display = 'none';
+  htScores = [0, 0, 0];
+  htRound = 0;
+  htTimer = 20;
+  htCursorY = 0.5;
+  htCursorDir = 1;
+  htBall = null;
+  htShooting = false;
+  htPlayerPhase = 0;
+  gameState = STATE.HALFTIME;
+}
+
+function htShoot() {
+  if (gameState !== STATE.HALFTIME) return;
+  if (htBall) return;
+  var cfg = HT_ROUNDS[Math.min(htRound, 2)];
+  var hoopY = H * HT_HOOP_Y_FRAC;
+  var rimW  = W * 0.055;
+  var cursorYpx = htCursorY * H;
+  var offset = cursorYpx - hoopY; // negative = cursor above hoop, positive = below
+
+  // Determine result
+  var result;
+  if (Math.abs(offset) < H * 0.05) {
+    result = 'swish';
+  } else if (Math.abs(offset) < H * 0.12) {
+    result = 'brick'; // close miss - hits rim
+  } else if (offset > 0) {
+    result = 'airball'; // cursor too low = ball falls short
+  } else {
+    result = 'over'; // cursor too high = ball sails over
+  }
+
+  var px  = cfg.playerX * W + W * 0.035;
+  var py  = H * 0.65;
+  var tx  = HT_HOOP_X * W;
+  var ty  = hoopY;
+  // adjust endpoint based on result
+  if (result === 'airball') { tx = tx - rimW * 2; ty = hoopY + H * 0.12; }
+  if (result === 'over')    { tx = tx + rimW;     ty = hoopY - H * 0.14; }
+  var peakY = Math.min(ty, hoopY) - H * 0.22;
+
+  htBall = { x: px, y: py, tx: tx, ty: ty, t: 0, dur: 0.65,
+             result: result, peakY: peakY,
+             // post-rim bounce state
+             phase: 'rising', phaseT: 0,
+             bx: tx, by: ty, bvx: 0, bvy: 0 };
+  htPlayerPhase = 1;
+  playShoot();
+}
+
+function updateHalftime(dt) {
+  if (gameState !== STATE.HALFTIME) return;
+  var cfg = HT_ROUNDS[htRound];
+
+  // Timer
+  htTimer -= dt;
+  if (htTimer <= 0) {
+    htTimer = 0;
+    // advance round or end
+    htRound++;
+    if (htRound >= 3) {
+      endHalftime();
+      return;
+    }
+    htTimer = 20;
+    htBall = null;
+    htPlayerPhase = 0;
+    return;
+  }
+
+  // Cursor oscillation - constrained to sweet zone band around hoop
+  var hoopYpx = H * HT_HOOP_Y_FRAC;
+  var zoneH   = H * 0.18; // half-height of cursor travel range
+  var cursorMin = (hoopYpx - zoneH) / H;
+  var cursorMax = (hoopYpx + zoneH) / H;
+  htCursorY += htCursorDir * cfg.speed * dt * 0.55;
+  if (htCursorY >= cursorMax) { htCursorY = cursorMax; htCursorDir = -1; }
+  if (htCursorY <= cursorMin) { htCursorY = cursorMin; htCursorDir =  1; }
+
+  // Ball in flight
+  if (htBall) {
+    if (htBall.phase === 'rising') {
+      htBall.t += dt / htBall.dur;
+      if (htBall.t >= 1) {
+        htBall.t = 1;
+        var res = htBall.result;
+        if (res === 'swish') {
+          htScores[htRound]++;
+          playSwish();
+          playCrowd();
+          htBall.phase = 'through';
+          htBall.phaseT = 0;
+        } else if (res === 'brick') {
+          playBrick();
+          htBall.phase = 'bounce';
+          htBall.phaseT = 0;
+          htBall.bx = htBall.tx;
+          htBall.by = htBall.ty;
+          // bounce sideways away from hoop
+          htBall.bvx = -W * 0.15;
+          htBall.bvy = -H * 0.25;
+        } else {
+          // airball or over - just vanish
+          playBrick();
+          htBall.phase = 'vanish';
+          htBall.phaseT = 0;
+        }
+        htPlayerPhase = 2;
+      }
+    } else if (htBall.phase === 'through') {
+      htBall.phaseT += dt;
+      if (htBall.phaseT > 0.5) { htBall = null; htPlayerPhase = 0; }
+    } else if (htBall.phase === 'bounce') {
+      htBall.phaseT += dt;
+      htBall.bvy += H * 1.1 * dt;
+      htBall.bx  += htBall.bvx * dt;
+      htBall.by  += htBall.bvy * dt;
+      if (htBall.by > H + 40) { htBall = null; htPlayerPhase = 0; }
+    } else if (htBall.phase === 'vanish') {
+      htBall.phaseT += dt;
+      if (htBall.phaseT > 0.3) { htBall = null; htPlayerPhase = 0; }
+    }
+  }
+}
+
+function htBallPos(ball, t) {
+  var x = ball.x + (ball.tx - ball.x) * t;
+  var p1y = 2 * ball.peakY - 0.5 * (ball.y + ball.ty);
+  var mt = 1 - t;
+  var y = mt * mt * ball.y + 2 * mt * t * p1y + t * t * ball.ty;
+  return { x: x, y: y };
+}
+
+function endHalftime() {
+  playBuzzer();
+  var total = htScores[0] + htScores[1] * 2 + htScores[2] * 3;
+  document.getElementById('htFT').textContent = htScores[0];
+  document.getElementById('ht3P').textContent = htScores[1];
+  document.getElementById('htHC').textContent = htScores[2];
+  document.getElementById('htTotal').textContent = 'BONUS: ' + total + ' pts (not added)';
+  document.getElementById('halftimeDone').style.display = 'flex';
+  gameState = STATE.HALFTIME_DONE;
+}
+
+function drawHalftime() {
+  // Clamp htRound so cfg never reads beyond array bounds (htRound=3 when done)
+  var cfg = HT_ROUNDS[Math.min(htRound, 2)];
+  // Hard-reset shadow state - critical for WKWebView stability
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.globalAlpha = 1;
+  // Background
+  drawBrickWall();
+
+  // Court floor
+  var floorY = H * 0.78;
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(0, floorY, W, H - floorY);
+  // Court lines
+  ctx.strokeStyle = 'rgba(255,200,100,0.5)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
+  // Free throw line
+  ctx.strokeStyle = 'rgba(255,200,100,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 6]);
+  ctx.beginPath();
+  ctx.moveTo(cfg.playerX * W + W * 0.04, floorY);
+  ctx.lineTo(cfg.playerX * W + W * 0.04, floorY - H * 0.02);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // ---- HOOP (side view) ----
+  var hx = HT_HOOP_X * W;
+  var hy = H * HT_HOOP_Y_FRAC;
+  var rimLen = W * 0.055;
+  var poleX  = hx + rimLen * 0.5;
+
+  // pole
+  ctx.strokeStyle = '#888';
+  ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(poleX, 0); ctx.lineTo(poleX, hy); ctx.stroke();
+
+  // backboard (vertical rectangle)
+  ctx.fillStyle = '#cce';
+  ctx.fillRect(poleX - 4, hy - W * 0.05, 8, W * 0.1);
+  ctx.strokeStyle = '#ff3300';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(poleX - 4, hy - W * 0.05, 8, W * 0.1);
+
+  // rim arm + rim (side view = horizontal line)
+  ctx.strokeStyle = '#ff5500';
+  ctx.lineWidth = 5;
+  ctx.beginPath(); ctx.moveTo(poleX - 4, hy); ctx.lineTo(hx - rimLen * 0.5, hy); ctx.stroke();
+
+  // net (side view = short diagonal lines down-left)
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 1;
+  for (var nk = 0; nk <= 4; nk++) {
+    var nx2 = hx - rimLen * 0.5 + (nk / 4) * rimLen;
+    ctx.beginPath();
+    ctx.moveTo(nx2, hy);
+    ctx.lineTo(nx2 - rimLen * 0.08, hy + rimLen * 0.55);
+    ctx.stroke();
+  }
+  // net bottom
+  ctx.beginPath();
+  ctx.moveTo(hx - rimLen * 0.5, hy + rimLen * 0.55);
+  ctx.lineTo(hx + rimLen * 0.08, hy + rimLen * 0.55);
+  ctx.stroke();
+
+  // ---- CURSOR (moving target near hoop) ----
+  var cursorPx = (hx - rimLen * 0.5) - W * 0.04;
+  var cursorPy = htCursorY * H;
+  var rimPy    = hy;
+  var distFrac = Math.abs(cursorPy - rimPy) / (H * 0.05); // 1.0 = edge of sweet spot
+  var inZone   = distFrac < 1;
+  // color: bright green when on rim, orange when far
+  var gr = inZone ? Math.round(255 * distFrac) : 255;
+  var gg = inZone ? Math.round(255 * (1 - distFrac * 0.5)) : 80;
+  var cursorColor = 'rgba(' + gr + ',' + gg + ',0,0.95)';
+
+  ctx.save();
+  ctx.translate(cursorPx, cursorPy);
+  ctx.fillStyle = cursorColor;
+  // NO shadowBlur - crashes WKWebView
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(-W * 0.03, -H * 0.018);
+  ctx.lineTo(-W * 0.015, 0);
+  ctx.lineTo(-W * 0.03,  H * 0.018);
+  ctx.closePath();
+  ctx.fill();
+  // outer ring when in sweet zone
+  if (inZone) {
+    ctx.strokeStyle = cursorColor;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(-W * 0.015, 0, W * 0.025 * (1 - distFrac * 0.4), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // ---- PLAYER (side view pixel art) ----
+  var plx = cfg.playerX * W + W * 0.035;
+  drawHTPlayer(plx, floorY, htPlayerPhase);
+
+  // ---- BALL IN FLIGHT ----
+  if (htBall) {
+    var bR = Math.min(W, H) * 0.026;
+    if (htBall.phase === 'rising') {
+      var bpos = htBallPos(htBall, htBall.t);
+      drawBall(bpos.x, bpos.y, bR);
+    } else if (htBall.phase === 'through') {
+      // drop through net
+      var netDrop = htBall.phaseT * H * 0.18;
+      var na2 = Math.max(0, 1 - htBall.phaseT / 0.4);
+      ctx.globalAlpha = na2;
+      drawBall(htBall.tx, htBall.ty + netDrop, bR * 0.9);
+      ctx.globalAlpha = 1;
+    } else if (htBall.phase === 'bounce') {
+      drawBall(htBall.bx, htBall.by, bR);
+    } else if (htBall.phase === 'vanish') {
+      var va2 = Math.max(0, 1 - htBall.phaseT / 0.25);
+      ctx.globalAlpha = va2;
+      drawBall(htBall.tx, htBall.ty, bR);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // ---- HUD ----
+  ctx.fillStyle = 'rgba(0,0,0,0.72)';
+  ctx.fillRect(0, 0, W, H * 0.1);
+  var barH2 = H * 0.1;
+  var fs2 = barH2 * 0.36;
+  ctx.fillStyle = '#ffcc00';
+  ctx.font = 'bold ' + fs2 + 'px Arial Black';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('HALFTIME', W * 0.03, barH2 * 0.38);
+  ctx.fillStyle = '#ff9900';
+  ctx.font = 'bold ' + (fs2 * 0.75) + 'px Arial Black';
+  ctx.fillText(cfg.label, W * 0.03, barH2 * 0.78);
+  // timer
+  ctx.fillStyle = htTimer <= 5 ? '#ff3300' : '#fff';
+  ctx.font = 'bold ' + (fs2 * 1.1) + 'px Arial Black';
+  ctx.textAlign = 'center';
+  ctx.fillText(Math.ceil(htTimer) + 's', W * 0.5, barH2 * 0.5);
+  // makes
+  ctx.fillStyle = '#00ff88';
+  ctx.font = 'bold ' + fs2 + 'px Arial Black';
+  ctx.textAlign = 'right';
+  var safeRound = Math.min(htRound, 2);
+  ctx.fillText('MADE: ' + htScores[safeRound], W * 0.97, barH2 * 0.5);
+  // round pips
+  for (var rp = 0; rp < 3; rp++) {
+    ctx.beginPath();
+    ctx.arc(W * 0.5 + (rp - 1) * W * 0.055, barH2 * 0.88, H * 0.012, 0, Math.PI * 2);
+    ctx.fillStyle = rp <= safeRound ? '#ffcc00' : 'rgba(255,255,255,0.2)';
+    ctx.fill();
+  }
+}
+
+// Side-view pixel art player for halftime
+function drawHTPlayer(px, floorY, phase) {
+  var u = Math.min(W * 0.04, H * 0.04);
+  var skin = '#b8806a';
+  var red  = '#cc1111';
+  ctx.save();
+  ctx.translate(px, floorY);
+
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, u*1.6, u*0.35, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // legs
+  ctx.fillStyle = skin;
+  if (phase === 1) {
+    // shooting - right leg forward, left back
+    ctx.fillRect(-u*0.8, -u*3.5, u*0.7, u*3.5);
+    ctx.fillRect(u*0.1,  -u*3.2, u*0.7, u*3.2);
+  } else {
+    ctx.fillRect(-u*0.5, -u*3.8, u*0.7, u*3.8);
+    ctx.fillRect(u*0.3,  -u*3.8, u*0.7, u*3.8);
+  }
+  // shoes
+  ctx.fillStyle = '#cc2200';
+  ctx.fillRect(-u*1.0, -u*0.7, u*1.1, u*0.7);
+  ctx.fillRect(u*0.1,  -u*0.7, u*1.1, u*0.7);
+  // shorts
+  ctx.fillStyle = red;
+  ctx.fillRect(-u*1.1, -u*5.2, u*2.6, u*1.8);
+  // torso/jersey
+  ctx.fillStyle = red;
+  ctx.fillRect(-u*0.9, -u*8.4, u*2.0, u*3.2);
+  // arms
+  ctx.fillStyle = skin;
+  if (phase === 1) {
+    // shooting arm reaches up-right
+    ctx.fillRect(u*1.1, -u*9.8, u*0.65, u*2.0);
+    ctx.fillRect(u*1.4, -u*11.4, u*0.6, u*1.8);
+    // left arm tucked
+    ctx.fillRect(-u*0.9, -u*8.2, u*0.6, u*1.6);
+  } else {
+    ctx.fillRect(u*1.1, -u*8.2, u*0.65, u*2.0);
+    ctx.fillRect(-u*0.9, -u*8.2, u*0.6, u*2.0);
+  }
+  // head
+  ctx.fillStyle = skin;
+  ctx.beginPath();
+  ctx.ellipse(u*0.2, -u*9.8, u*0.9, u*1.0, 0, 0, Math.PI*2);
+  ctx.fill();
+  // headband
+  ctx.fillStyle = '#22aa22';
+  ctx.fillRect(-u*0.6, -u*10.5, u*1.6, u*0.5);
+  // eye
+  ctx.fillStyle = '#222';
+  ctx.beginPath();
+  ctx.arc(u*0.8, -u*9.7, u*0.15, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ---- RENDER ----
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.shadowBlur = 0;
+  ctx.shadowColor = 'transparent';
+  ctx.globalAlpha = 1;
+
+  if (gameState === STATE.HALFTIME || gameState === STATE.HALFTIME_DONE) {
+    drawHalftime();
+    return;
+  }
+
+  drawBrickWall();
+
+  if (gameState === STATE.PLAYING || gameState === STATE.STATS) {
+    drawHoop();
+
+    // Draw players
+    var zoneW = W / 4;
+    var py = H * (isLandscape ? 0.72 : 0.78);
+    for (var p = 0; p < 4; p++) {
+      var cx = zoneW * p + zoneW / 2;
+      drawPlayer(cx, py, p, players[p].animPhase);
+    }
+
+    // Draw balls in flight / post-rim
+    var ballR = Math.min(W, H) * 0.028;
+    for (var i = 0; i < balls.length; i++) {
+      var ball = balls[i];
+      if (ball.phase === 'rising') {
+        var pos = ballPosOnArc(ball.arc, ball.t);
+        drawBall(pos.x, pos.y, ballR);
+      } else if (ball.phase === 'vanish') {
+        // Airball fades out at rim height - never hits rim
+        var va = Math.max(0, 1 - ball.phaseT / 0.2);
+        ctx.globalAlpha = va;
+        drawBall(ball.rimX, ball.rimY, ballR);
+        ctx.globalAlpha = 1;
+      } else if (ball.phase === 'through') {
+        // Ball and net animation both track the LIVE hoop position
+        var rimW = W * 0.06;
+        var rimH = rimW * 0.22;
+        var netDropFrac = Math.min(1, ball.phaseT / 0.5);
+        var netDrop = netDropFrac * rimH * 4.5;
+        var na = Math.max(0, 1 - ball.phaseT / 0.55);
+        // always use live hoop X so net moves with hoop
+        var nx = getHoopPixelX();
+        var ny = getHoopPixelY();
+        var bulge = netDropFrac * rimW * 0.55;
+        ctx.save();
+        // net strings pulled down by ball
+        ctx.strokeStyle = 'rgba(255,255,255,0.88)';
+        ctx.lineWidth = 1.2;
+        for (var ns = 0; ns < 7; ns++) {
+          var nfrac = ns / 6;
+          var ntopX = nx + (nfrac * 2 - 1) * rimW;
+          var nbotX = nx + (nfrac * 2 - 1) * rimW * 0.3;
+          var pullY = ny + rimH * 0.5 + bulge * (1 - Math.abs(nfrac * 2 - 1));
+          ctx.beginPath();
+          ctx.moveTo(ntopX, ny + rimH * 0.5);
+          ctx.quadraticCurveTo((ntopX + nbotX) * 0.5, pullY, nbotX, ny + rimH * 4.5 + bulge * 0.6);
+          ctx.stroke();
+        }
+        // horizontal rings
+        for (var nr = 1; nr <= 3; nr++) {
+          var nrfrac = nr / 3;
+          var nry = ny + rimH * 0.5 + nrfrac * (rimH * 4.5 + bulge * 0.7);
+          var nrw = rimW * (1 - nrfrac * 0.55);
+          ctx.beginPath();
+          ctx.moveTo(nx - nrw, nry);
+          ctx.lineTo(nx + nrw, nry);
+          ctx.stroke();
+        }
+        // ball follows live hoop X as it drops through
+        ctx.globalAlpha = na;
+        drawBall(nx, ny + netDrop, ballR * (1 - netDropFrac * 0.15));
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      } else if (ball.phase === 'bounce') {
+        drawBall(ball.rimX, ball.rimY, ballR);
+      }
+    }
+
+    drawEffects();
+    drawHUD();
+  }
+}
+
+// ---- LOOP ----
+function loop(ts) {
+  var dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ---- INPUT ----
+canvas.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  if (gameState === STATE.HALFTIME) { htShoot(); return; }
+  if (gameState !== STATE.PLAYING) return;
+  var touch = e.changedTouches[0];
+  var x = touch.clientX;
+  var zone = Math.floor(x / (W / 4));
+  zone = Math.max(0, Math.min(3, zone));
+  shootBall(zone);
+}, { passive: false });
+
+canvas.addEventListener('mousedown', function(e) {
+  if (gameState === STATE.HALFTIME) { htShoot(); return; }
+  if (gameState !== STATE.PLAYING) return;
+  var x = e.clientX;
+  var zone = Math.floor(x / (W / 4));
+  zone = Math.max(0, Math.min(3, zone));
+  shootBall(zone);
+});
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+document.getElementById('startBtn').addEventListener('touchend', function(e) {
+  e.preventDefault(); startGame();
+});
+
+document.getElementById('continueBtn').addEventListener('click', startNextQuarter);
+document.getElementById('continueBtn').addEventListener('touchend', function(e) {
+  e.preventDefault(); startNextQuarter();
+});
+
+document.getElementById('halftimeStartBtn').addEventListener('click', startHalftime);
+document.getElementById('halftimeStartBtn').addEventListener('touchend', function(e) {
+  e.preventDefault(); startHalftime();
+});
+
+document.getElementById('halftimeDoneBtn').addEventListener('click', function() {
+  document.getElementById('halftimeDone').style.display = 'none';
+  beginQuarter();
+});
+document.getElementById('halftimeDoneBtn').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  document.getElementById('halftimeDone').style.display = 'none';
+  beginQuarter();
+});
+
+document.getElementById('playAgainBtn').addEventListener('click', function() {
+  document.getElementById('finalOverlay').style.display = 'none';
+  document.getElementById('overlay').classList.remove('hidden');
+  gameState = STATE.TITLE;
+});
+document.getElementById('playAgainBtn').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  document.getElementById('finalOverlay').style.display = 'none';
+  document.getElementById('overlay').classList.remove('hidden');
+  gameState = STATE.TITLE;
+});
+
+// ---- BOOT ----
+requestAnimationFrame(function(ts) {
+  lastTime = ts;
+  requestAnimationFrame(loop);
+});
+</script>
+
+</body>
+</html>
