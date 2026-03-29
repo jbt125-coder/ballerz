@@ -1749,8 +1749,8 @@ function drawHTPlayer(px, floorY, phase) {
 }
 
 // ---- LEADERBOARD ----
-var DREAMLO_PUBLIC  = 'http://dreamlo.com/lb/69b4825e8f40bb1b14b2f7ca/json';
-var DREAMLO_PRIVATE = 'http://dreamlo.com/lb/_8ttygvNXEGlBB_lrbOT9Ay3Ywrjov0EGFC-Cd3BtsFA';
+var DREAMLO_PUBLIC  = 'https://dreamlo.com/lb/69b4825e8f40bb1b14b2f7ca/json';
+var DREAMLO_PRIVATE = 'https://dreamlo.com/lb/_8ttygvNXEGlBB_lrbOT9Ay3Ywrjov0EGFC-Cd3BtsFA';
 var GAME_URL        = 'https://jbt125-coder.github.io/ballerz/';
 var lbLastName      = '';
 var lbLocalScores   = [];
@@ -1834,12 +1834,15 @@ function submitScore(name, score) {
 
 function shareScore() {
   var name = (lbLastName || 'someone').toUpperCase();
-  var msg = name + ' scored ' + totalScore + ' pts in BALLERZ! Can you beat it? Play here: ' + GAME_URL;
+  // Message text only - no URL in body to avoid duplication
+  var msg = name + ' scored ' + totalScore + ' pts in BALLERZ! Can you beat it?';
   if (navigator.share) {
+    // navigator.share sends url separately - don't put it in text too
     navigator.share({ title: 'BALLERZ Challenge', text: msg, url: GAME_URL })
       .catch(function() {});
   } else {
-    var sms = 'sms:?&body=' + encodeURIComponent(msg);
+    // Fallback SMS - include URL once in body
+    var sms = 'sms:?&body=' + encodeURIComponent(msg + ' ' + GAME_URL);
     window.open(sms);
   }
 }
